@@ -18,10 +18,12 @@ interface ClickPoint {
 
 interface VideoCanvasProps {
     videoUrl: string | null;
+    selectedPoints: ClickPoint[];
     onPointSelect: (point: ClickPoint) => void;
+    onPointRemove: (pointId: string) => void;
 }
 
-export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
+export function VideoCanvas({ videoUrl, selectedPoints, onPointSelect, onPointRemove }: VideoCanvasProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -29,26 +31,54 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
-    const [clickPoints, setClickPoints] = useState<ClickPoint[]>([]);
     const [showRipple, setShowRipple] = useState<{ x: number; y: number } | null>(null);
     const [currentFrame, setCurrentFrame] = useState(0);
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    // Error state moved to top level
+    const [hasError, setHasError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
     const FPS = 30;
 
+    // Reset state when video URL changes
+    useEffect(() => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+        setCurrentFrame(0);
+        setIsLoaded(false);
+        setHasError(false);
+        setErrorMessage("");
+    }, [videoUrl]);
+
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || !videoUrl) return;
 
         const updateTime = () => {
             setCurrentTime(video.currentTime);
             setCurrentFrame(Math.floor(video.currentTime * FPS));
         };
 
+        const handleLoaded = () => {
+            setDuration(video.duration);
+            setIsLoaded(true);
+        };
+
+        const handlePlay = () => setIsPlaying(true);
+        const handlePause = () => setIsPlaying(false);
+
         video.addEventListener("timeupdate", updateTime);
-        video.addEventListener("loadedmetadata", () => setDuration(video.duration));
+        video.addEventListener("loadedmetadata", handleLoaded);
+        video.addEventListener("play", handlePlay);
+        video.addEventListener("pause", handlePause);
 
         return () => {
             video.removeEventListener("timeupdate", updateTime);
+            video.removeEventListener("loadedmetadata", handleLoaded);
+            video.removeEventListener("play", handlePlay);
+            video.removeEventListener("pause", handlePause);
         };
     }, [videoUrl]);
 
@@ -61,7 +91,6 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
         } else {
             video.play();
         }
-        setIsPlaying(!isPlaying);
     }, [isPlaying]);
 
     const handleVideoClick = useCallback((e: React.MouseEvent<HTMLVideoElement>) => {
@@ -82,7 +111,6 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
             timestamp: video.currentTime,
         };
 
-        setClickPoints((prev) => [...prev, point]);
         onPointSelect(point);
 
         // Show ripple effect
@@ -102,6 +130,7 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
+    // Early returns MUST be after all hooks
     if (!videoUrl) {
         return (
             <Card className="relative aspect-video flex flex-col items-center justify-center gap-4 bg-[#0A0A0B] border-[#27272A]">
@@ -126,36 +155,67 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
         );
     }
 
+    if (hasError) {
+        return (
+            <Card className="relative aspect-video flex flex-col items-center justify-center gap-4 bg-[#0A0A0B] border-[#27272A]">
+                <div className="flex flex-col items-center gap-2 text-red-500">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20">
+                        <VolumeX className="h-8 w-8" />
+                    </div>
+                    <p className="text-sm font-medium">Failed to load video</p>
+                    <p className="text-xs text-[#71717A] max-w-[200px] text-center">
+                        {errorMessage || "The format may not be supported by your browser."}
+                    </p>
+                </div>
+            </Card>
+        );
+    }
+
     return (
         <Card className="relative overflow-hidden bg-[#0A0A0B] p-0 border-[#27272A]">
             {/* Video Container */}
             <div ref={containerRef} className="relative aspect-video bg-black">
                 <video
+                    key={videoUrl}
                     ref={videoRef}
                     src={videoUrl}
                     className="h-full w-full object-contain cursor-crosshair"
                     onClick={handleVideoClick}
                     muted={isMuted}
                     playsInline
+                    preload="auto"
+                    onError={(e) => {
+                        console.error("Video error:", e.currentTarget.error);
+                        setHasError(true);
+                        setErrorMessage(e.currentTarget.error?.message || "Format not supported");
+                    }}
                 />
 
                 {/* Click Points Overlay */}
                 <AnimatePresence>
-                    {clickPoints.map((point) => (
-                        <motion.div
+                    {selectedPoints.map((point) => (
+                        <motion.button
                             key={point.id}
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0, opacity: 0 }}
-                            className="absolute pointer-events-none"
+                            whileHover={{ scale: 1.2 }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onPointRemove(point.id);
+                            }}
+                            className="absolute group cursor-pointer"
                             style={{
                                 left: `${point.xPercent}%`,
                                 top: `${point.yPercent}%`,
                                 transform: "translate(-50%, -50%)",
                             }}
+                            title="Click to remove"
                         >
-                            <div className="h-6 w-6 rounded-full border-2 border-[#8B5CF6] bg-[#8B5CF6]/30 shadow-lg shadow-[#8B5CF6]/50" />
-                        </motion.div>
+                            <div className="h-7 w-7 rounded-full border-2 border-[#8B5CF6] bg-[#8B5CF6]/30 shadow-lg shadow-[#8B5CF6]/50 flex items-center justify-center transition-all group-hover:bg-[#EF4444]/50 group-hover:border-[#EF4444]">
+                                <span className="text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">✕</span>
+                            </div>
+                        </motion.button>
                     ))}
                 </AnimatePresence>
 
@@ -181,7 +241,7 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
 
                 {/* Center Play Button */}
                 <AnimatePresence>
-                    {!isPlaying && (
+                    {!isPlaying && isLoaded && (
                         <motion.button
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -197,17 +257,19 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
                 </AnimatePresence>
 
                 {/* Frame Counter */}
-                <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="font-mono text-xs">
-                        Frame: {currentFrame}
-                    </Badge>
-                </div>
+                {isLoaded && (
+                    <div className="absolute top-4 right-4">
+                        <Badge variant="secondary" className="font-mono text-xs">
+                            Frame: {currentFrame}
+                        </Badge>
+                    </div>
+                )}
 
                 {/* Points Counter */}
-                {clickPoints.length > 0 && (
+                {selectedPoints.length > 0 && (
                     <div className="absolute top-4 left-4">
                         <Badge variant="default" className="text-xs">
-                            {clickPoints.length} point{clickPoints.length !== 1 ? "s" : ""} selected
+                            {selectedPoints.length} point{selectedPoints.length !== 1 ? "s" : ""} selected
                         </Badge>
                     </div>
                 )}
@@ -235,7 +297,9 @@ export function VideoCanvas({ videoUrl, onPointSelect }: VideoCanvasProps) {
               [&::-webkit-slider-thumb]:hover:scale-125
             "
                         style={{
-                            background: `linear-gradient(to right, #8B5CF6 ${(currentTime / duration) * 100}%, #27272A ${(currentTime / duration) * 100}%)`,
+                            background: duration > 0
+                                ? `linear-gradient(to right, #8B5CF6 ${(currentTime / duration) * 100}%, #27272A ${(currentTime / duration) * 100}%)`
+                                : '#27272A',
                         }}
                     />
                 </div>

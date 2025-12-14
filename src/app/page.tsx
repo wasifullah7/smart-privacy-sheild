@@ -10,7 +10,7 @@ import { ActionButton } from "@/components/ActionButton";
 import { LoadingState } from "@/components/LoadingState";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, Shield, Zap } from "lucide-react";
+import { Target, Sparkles, Shield, X } from "lucide-react";
 
 interface ClickPoint {
   id: string;
@@ -35,14 +35,15 @@ export default function Home() {
     setVideoUrl(url);
     setSelectedPoints([]);
     setStatus("idle");
+    setPrompt("");
   }, []);
 
   const handlePointSelect = useCallback((point: ClickPoint) => {
     setSelectedPoints((prev) => [...prev, point]);
   }, []);
 
-  const handlePromptSubmit = useCallback((text: string) => {
-    setPrompt(text);
+  const handlePointRemove = useCallback((pointId: string) => {
+    setSelectedPoints((prev) => prev.filter((p) => p.id !== pointId));
   }, []);
 
   const handleApplyTracking = useCallback(async () => {
@@ -62,18 +63,13 @@ export default function Home() {
         return prev + 5;
       });
     }, 200);
-
-    // In production, send to backend:
-    // await videoService.submitPrompt({ text: prompt, videoId, interactions: selectedPoints });
   }, [videoFile, selectedPoints, prompt]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
+      transition: { staggerChildren: 0.1 },
     },
   };
 
@@ -86,102 +82,72 @@ export default function Home() {
     <div className="min-h-screen bg-[#0A0A0B]">
       <Header />
 
-      <main className="pt-24 pb-12 px-6">
+      <main className="pt-24 pb-12 px-4 md:px-6">
         <div className="mx-auto max-w-7xl">
           {/* Hero Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            className="text-center mb-10"
           >
             <Badge variant="default" className="mb-4">
               <Sparkles className="h-3 w-3 mr-1" />
               AI-Powered Privacy
             </Badge>
-            <h1 className="text-4xl font-bold text-white tracking-tight mb-3">
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-3">
               Protect Your Videos with{" "}
               <span className="bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] bg-clip-text text-transparent">
                 Smart AI
               </span>
             </h1>
-            <p className="text-[#71717A] max-w-lg mx-auto">
+            <p className="text-[#71717A] max-w-lg mx-auto text-sm md:text-base">
               Upload a video, click to select objects or people, and let our AI
-              automatically track and blur them throughout the video.
+              automatically track and blur them.
             </p>
           </motion.div>
 
-          {/* Main Workspace */}
+          {/* Main Workspace - Improved Layout */}
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6"
+            className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start"
           >
             {/* Left Panel - Controls */}
-            <motion.div variants={itemVariants} className="space-y-5">
-              {/* Upload Section */}
-              <div>
-                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
+            <motion.div variants={itemVariants} className="space-y-4">
+              {/* Step 1: Upload */}
+              <Card className="!p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#8B5CF6] text-white text-xs font-bold">
                     1
                   </span>
-                  Upload Video
-                </h2>
+                  <h2 className="text-sm font-semibold text-white">Upload Video</h2>
+                </div>
                 <VideoUpload onFileSelect={handleFileSelect} />
-              </div>
+              </Card>
 
-              {/* Prompt Section */}
-              <div>
-                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
+              {/* Step 2: Prompt */}
+              <Card className="!p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#8B5CF6] text-white text-xs font-bold">
                     2
                   </span>
-                  Describe Action
-                </h2>
+                  <h2 className="text-sm font-semibold text-white">Describe Action</h2>
+                </div>
                 <PromptInput
-                  onSubmit={handlePromptSubmit}
+                  value={prompt}
+                  onChange={setPrompt}
                   disabled={!videoUrl}
                 />
-              </div>
+              </Card>
 
-              {/* Action Button */}
-              <div>
-                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
-                    3
-                  </span>
-                  Apply
-                </h2>
-                <ActionButton
-                  onClick={handleApplyTracking}
-                  loading={status === "processing"}
-                  disabled={!videoUrl || selectedPoints.length === 0 || !prompt}
-                />
-
-                {/* Hint text */}
-                {videoUrl && selectedPoints.length === 0 && (
-                  <p className="text-xs text-[#52525B] mt-2 text-center">
-                    Click on the video to select points
-                  </p>
-                )}
-              </div>
-
-              {/* Loading State */}
-              {status !== "idle" && (
-                <LoadingState
-                  status={status}
-                  progress={progress}
-                  message="Tracking and applying effects..."
-                />
-              )}
-
-              {/* Selected Points Summary */}
+              {/* Selected Points */}
               {selectedPoints.length > 0 && (
                 <Card className="!p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-[#A1A1AA]">
-                      Selected Points
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-white">
+                      Selected Points ({selectedPoints.length})
                     </span>
                     <button
                       onClick={() => setSelectedPoints([])}
@@ -190,35 +156,82 @@ export default function Home() {
                       Clear all
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedPoints.slice(0, 6).map((point, i) => (
-                      <Badge key={point.id} variant="secondary" className="text-xs">
-                        <Target className="h-2.5 w-2.5 mr-1" />
-                        F{point.frameIndex}
-                      </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPoints.map((point) => (
+                      <motion.div
+                        key={point.id}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="group relative"
+                      >
+                        <Badge variant="secondary" className="text-xs pr-6">
+                          <Target className="h-2.5 w-2.5 mr-1" />
+                          Frame {point.frameIndex}
+                        </Badge>
+                        <button
+                          onClick={() => handlePointRemove(point.id)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-[#3F3F46] hover:bg-[#EF4444] flex items-center justify-center transition-colors"
+                        >
+                          <X className="h-2.5 w-2.5 text-white" />
+                        </button>
+                      </motion.div>
                     ))}
-                    {selectedPoints.length > 6 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{selectedPoints.length - 6} more
-                      </Badge>
-                    )}
                   </div>
                 </Card>
+              )}
+
+              {/* Step 3: Apply */}
+              <Card className="!p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#8B5CF6] text-white text-xs font-bold">
+                    3
+                  </span>
+                  <h2 className="text-sm font-semibold text-white">Apply Tracking</h2>
+                </div>
+                <ActionButton
+                  onClick={handleApplyTracking}
+                  loading={status === "processing"}
+                  disabled={!videoUrl || selectedPoints.length === 0 || !prompt}
+                />
+                {videoUrl && selectedPoints.length === 0 && (
+                  <p className="text-xs text-[#52525B] mt-3 text-center">
+                    👆 Click on the video to select points to track
+                  </p>
+                )}
+                {videoUrl && selectedPoints.length > 0 && !prompt && (
+                  <p className="text-xs text-[#52525B] mt-3 text-center">
+                    ✍️ Enter a prompt to describe the action
+                  </p>
+                )}
+              </Card>
+
+              {/* Loading/Success State */}
+              {status !== "idle" && (
+                <LoadingState
+                  status={status}
+                  progress={progress}
+                  message="Tracking and applying effects..."
+                />
               )}
             </motion.div>
 
             {/* Right Panel - Video Canvas */}
-            <motion.div variants={itemVariants}>
-              <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
-                <Target className="h-4 w-4 text-[#8B5CF6]" />
-                Video Canvas
-                <span className="text-xs text-[#52525B] ml-auto">
-                  Click to select regions
+            <motion.div variants={itemVariants} className="lg:sticky lg:top-24">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-[#A1A1AA] flex items-center gap-2">
+                  <Target className="h-4 w-4 text-[#8B5CF6]" />
+                  Video Canvas
+                </h2>
+                <span className="text-xs text-[#52525B]">
+                  Click to select • Hover points to remove
                 </span>
-              </h2>
+              </div>
               <VideoCanvas
                 videoUrl={videoUrl}
+                selectedPoints={selectedPoints}
                 onPointSelect={handlePointSelect}
+                onPointRemove={handlePointRemove}
               />
             </motion.div>
           </motion.div>
