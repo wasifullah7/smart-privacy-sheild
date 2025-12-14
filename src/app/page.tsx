@@ -1,256 +1,265 @@
-'use client';
+"use client";
 
-/* ==========================================================================
-   Smart Privacy Shield - Main Page
-   ========================================================================== */
+import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
+import { Header } from "@/components/Header";
+import { VideoUpload } from "@/components/VideoUpload";
+import { VideoCanvas } from "@/components/VideoCanvas";
+import { PromptInput } from "@/components/PromptInput";
+import { ActionButton } from "@/components/ActionButton";
+import { LoadingState } from "@/components/LoadingState";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Target, Sparkles, Shield, Zap } from "lucide-react";
 
-import React, { useState, useCallback } from 'react';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { FileUpload } from '@/components/upload/FileUpload';
-import { VideoPlayer } from '@/components/video/VideoPlayer';
-import { PromptInput } from '@/components/prompt/PromptInput';
-import { Card } from '@/components/common/Card';
-import { VideoInteraction, UploadProgress } from '@/types';
-import styles from './page.module.css';
+interface ClickPoint {
+  id: string;
+  x: number;
+  y: number;
+  xPercent: number;
+  yPercent: number;
+  frameIndex: number;
+  timestamp: number;
+}
 
 export default function Home() {
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [interactions, setInteractions] = useState<VideoInteraction[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedPoints, setSelectedPoints] = useState<ClickPoint[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const [status, setStatus] = useState<"idle" | "processing" | "success">("idle");
+  const [progress, setProgress] = useState(0);
 
-  // Handle file selection
-  const handleFileSelect = useCallback((file: File) => {
+  const handleFileSelect = useCallback((file: File, url: string) => {
     setVideoFile(file);
-    const url = URL.createObjectURL(file);
-    setVideoSrc(url);
-    setInteractions([]); // Reset interactions for new video
-    console.log('[App] Video file selected:', file.name);
+    setVideoUrl(url);
+    setSelectedPoints([]);
+    setStatus("idle");
   }, []);
 
-  // Handle upload progress
-  const handleUploadProgress = useCallback((progress: UploadProgress) => {
-    console.log('[App] Upload progress:', progress.percentage + '%');
+  const handlePointSelect = useCallback((point: ClickPoint) => {
+    setSelectedPoints((prev) => [...prev, point]);
   }, []);
 
-  // Handle video interaction
-  const handleInteraction = useCallback((interaction: VideoInteraction) => {
-    setInteractions(prev => [...prev, interaction]);
-    console.log('[App] New interaction:', interaction);
+  const handlePromptSubmit = useCallback((text: string) => {
+    setPrompt(text);
   }, []);
 
-  // Handle prompt submission
-  const handlePromptSubmit = useCallback(async (text: string) => {
-    if (!videoFile) {
-      alert('Please upload a video first');
-      return;
-    }
+  const handleApplyTracking = useCallback(async () => {
+    if (!videoFile || selectedPoints.length === 0 || !prompt) return;
 
-    setIsProcessing(true);
+    setStatus("processing");
+    setProgress(0);
 
-    console.log('[App] Submitting prompt:', {
-      text,
-      videoFile: videoFile.name,
-      interactions: interactions.length,
-    });
+    // Simulate processing
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setStatus("success");
+          return 100;
+        }
+        return prev + 5;
+      });
+    }, 200);
 
-    // Simulate API call - replace with actual backend call
-    try {
-      // In production, you would call:
-      // await videoService.submitPrompt({ text, videoId, interactions });
+    // In production, send to backend:
+    // await videoService.submitPrompt({ text: prompt, videoId, interactions: selectedPoints });
+  }, [videoFile, selectedPoints, prompt]);
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
 
-      alert(`Prompt submitted successfully!\n\nText: ${text}\nInteractions: ${interactions.length} points marked`);
-    } catch (error) {
-      console.error('[App] Submit error:', error);
-      alert('Failed to submit. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [videoFile, interactions]);
-
-  // Clear interaction
-  const clearInteraction = useCallback((id: string) => {
-    setInteractions(prev => prev.filter(i => i.id !== id));
-  }, []);
-
-  // Clear all interactions
-  const clearAllInteractions = useCallback(() => {
-    setInteractions([]);
-  }, []);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
 
   return (
-    <div className={styles.page}>
+    <div className="min-h-screen bg-[#0A0A0B]">
       <Header />
 
-      <main className={styles.main}>
-        {/* Hero Section */}
-        <section className={styles.hero}>
-          <div className={styles.heroContent}>
-            <div className={styles.badge}>
-              <span className={styles.badgeDot} />
-              AI-Powered Privacy Protection
-            </div>
-            <h1 className={styles.title}>
-              Protect Your Videos with
-              <span className={styles.titleGradient}> Smart Privacy</span>
+      <main className="pt-24 pb-12 px-6">
+        <div className="mx-auto max-w-7xl">
+          {/* Hero Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <Badge variant="default" className="mb-4">
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI-Powered Privacy
+            </Badge>
+            <h1 className="text-4xl font-bold text-white tracking-tight mb-3">
+              Protect Your Videos with{" "}
+              <span className="bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] bg-clip-text text-transparent">
+                Smart AI
+              </span>
             </h1>
-            <p className={styles.subtitle}>
-              Upload your video, mark sensitive areas, and let our AI handle the rest.
-              Blur faces, mask data, and secure your content in seconds.
+            <p className="text-[#71717A] max-w-lg mx-auto">
+              Upload a video, click to select objects or people, and let our AI
+              automatically track and blur them throughout the video.
             </p>
-          </div>
-        </section>
+          </motion.div>
 
-        {/* Main Dashboard */}
-        <section className={styles.dashboard}>
-          <div className={styles.container}>
-            <div className={styles.grid}>
-              {/* Left Panel - Upload */}
-              <div className={styles.panel}>
-                <Card variant="glass" className={styles.card}>
-                  <div className={styles.cardHeader}>
-                    <div className={styles.cardIcon}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                    </div>
-                    <h3 className={styles.cardTitle}>Upload Video</h3>
-                  </div>
-                  <FileUpload
-                    onFileSelect={handleFileSelect}
-                    onUploadProgress={handleUploadProgress}
-                  />
-                </Card>
+          {/* Main Workspace */}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6"
+          >
+            {/* Left Panel - Controls */}
+            <motion.div variants={itemVariants} className="space-y-5">
+              {/* Upload Section */}
+              <div>
+                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
+                    1
+                  </span>
+                  Upload Video
+                </h2>
+                <VideoUpload onFileSelect={handleFileSelect} />
+              </div>
 
-                {/* Interactions List */}
-                {interactions.length > 0 && (
-                  <Card variant="default" className={styles.interactionsCard}>
-                    <div className={styles.cardHeader}>
-                      <h4 className={styles.cardSubtitle}>
-                        Marked Points ({interactions.length})
-                      </h4>
-                      <button
-                        className={styles.clearBtn}
-                        onClick={clearAllInteractions}
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <ul className={styles.interactionsList}>
-                      {interactions.map((interaction, index) => (
-                        <li key={interaction.id} className={styles.interactionItem}>
-                          <div className={styles.interactionInfo}>
-                            <span className={styles.interactionIndex}>#{index + 1}</span>
-                            <span className={styles.interactionDetails}>
-                              Frame {interaction.frameIndex} •
-                              ({interaction.clickPosition.xPercent.toFixed(1)}%, {interaction.clickPosition.yPercent.toFixed(1)}%)
-                            </span>
-                          </div>
-                          <button
-                            className={styles.removeBtn}
-                            onClick={() => clearInteraction(interaction.id)}
-                            aria-label="Remove point"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
+              {/* Prompt Section */}
+              <div>
+                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
+                    2
+                  </span>
+                  Describe Action
+                </h2>
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  disabled={!videoUrl}
+                />
+              </div>
+
+              {/* Action Button */}
+              <div>
+                <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-bold">
+                    3
+                  </span>
+                  Apply
+                </h2>
+                <ActionButton
+                  onClick={handleApplyTracking}
+                  loading={status === "processing"}
+                  disabled={!videoUrl || selectedPoints.length === 0 || !prompt}
+                />
+
+                {/* Hint text */}
+                {videoUrl && selectedPoints.length === 0 && (
+                  <p className="text-xs text-[#52525B] mt-2 text-center">
+                    Click on the video to select points
+                  </p>
                 )}
               </div>
 
-              {/* Center Panel - Video Player */}
-              <div className={styles.videoPanel}>
-                <Card variant="glass" className={styles.videoCard}>
-                  <VideoPlayer
-                    src={videoSrc}
-                    onInteraction={handleInteraction}
-                  />
-                </Card>
-              </div>
+              {/* Loading State */}
+              {status !== "idle" && (
+                <LoadingState
+                  status={status}
+                  progress={progress}
+                  message="Tracking and applying effects..."
+                />
+              )}
 
-              {/* Right Panel - Prompt */}
-              <div className={styles.panel}>
-                <Card variant="glass" className={styles.card}>
-                  <div className={styles.cardHeader}>
-                    <div className={styles.cardIcon}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                    </div>
-                    <h3 className={styles.cardTitle}>AI Prompt</h3>
+              {/* Selected Points Summary */}
+              {selectedPoints.length > 0 && (
+                <Card className="!p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-[#A1A1AA]">
+                      Selected Points
+                    </span>
+                    <button
+                      onClick={() => setSelectedPoints([])}
+                      className="text-xs text-[#EF4444] hover:underline"
+                    >
+                      Clear all
+                    </button>
                   </div>
-                  <p className={styles.cardDescription}>
-                    Tell our AI what to do with the marked areas in your video.
-                  </p>
-                  <PromptInput
-                    onSubmit={handlePromptSubmit}
-                    disabled={isProcessing || !videoFile}
-                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedPoints.slice(0, 6).map((point, i) => (
+                      <Badge key={point.id} variant="secondary" className="text-xs">
+                        <Target className="h-2.5 w-2.5 mr-1" />
+                        F{point.frameIndex}
+                      </Badge>
+                    ))}
+                    {selectedPoints.length > 6 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{selectedPoints.length - 6} more
+                      </Badge>
+                    )}
+                  </div>
                 </Card>
+              )}
+            </motion.div>
 
-                {/* Features Preview */}
-                <Card variant="gradient" hover className={styles.featuresCard}>
-                  <h4 className={styles.featuresTitle}>What you can do</h4>
-                  <ul className={styles.featuresList}>
-                    <li className={styles.featureItem}>
-                      <span className={styles.featureIcon}>🎭</span>
-                      <span>Blur or pixelate faces</span>
-                    </li>
-                    <li className={styles.featureItem}>
-                      <span className={styles.featureIcon}>🔒</span>
-                      <span>Mask sensitive data</span>
-                    </li>
-                    <li className={styles.featureItem}>
-                      <span className={styles.featureIcon}>✨</span>
-                      <span>Apply custom effects</span>
-                    </li>
-                    <li className={styles.featureItem}>
-                      <span className={styles.featureIcon}>⚡</span>
-                      <span>Real-time processing</span>
-                    </li>
-                  </ul>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </section>
+            {/* Right Panel - Video Canvas */}
+            <motion.div variants={itemVariants}>
+              <h2 className="text-sm font-medium text-[#A1A1AA] mb-3 flex items-center gap-2">
+                <Target className="h-4 w-4 text-[#8B5CF6]" />
+                Video Canvas
+                <span className="text-xs text-[#52525B] ml-auto">
+                  Click to select regions
+                </span>
+              </h2>
+              <VideoCanvas
+                videoUrl={videoUrl}
+                onPointSelect={handlePointSelect}
+              />
+            </motion.div>
+          </motion.div>
 
-        {/* Stats Section */}
-        <section className={styles.stats}>
-          <div className={styles.container}>
-            <div className={styles.statsGrid}>
-              <div className={styles.statItem}>
-                <span className={styles.statValue}>99.9%</span>
-                <span className={styles.statLabel}>Detection Accuracy</span>
-              </div>
-              <div className={styles.statItem}>
-                <span className={styles.statValue}>&lt;5s</span>
-                <span className={styles.statLabel}>Processing Time</span>
-              </div>
-              <div className={styles.statItem}>
-                <span className={styles.statValue}>100%</span>
-                <span className={styles.statLabel}>Data Privacy</span>
-              </div>
-              <div className={styles.statItem}>
-                <span className={styles.statValue}>24/7</span>
-                <span className={styles.statLabel}>Availability</span>
-              </div>
-            </div>
-          </div>
-        </section>
+          {/* Features Section */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-4"
+          >
+            {[
+              {
+                icon: Target,
+                title: "Precise Selection",
+                description: "Click anywhere on the video to mark areas for privacy protection",
+              },
+              {
+                icon: Sparkles,
+                title: "AI Tracking",
+                description: "Our AI automatically tracks selected objects throughout the video",
+              },
+              {
+                icon: Shield,
+                title: "Privacy Protected",
+                description: "Blur, pixelate, or mask sensitive content with a single click",
+              },
+            ].map((feature, i) => (
+              <Card key={i} hover gradient className="!p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8B5CF6]/20 border border-[#8B5CF6]/30 mb-3">
+                  <feature.icon className="h-5 w-5 text-[#8B5CF6]" />
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1">
+                  {feature.title}
+                </h3>
+                <p className="text-xs text-[#71717A]">{feature.description}</p>
+              </Card>
+            ))}
+          </motion.div>
+        </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
